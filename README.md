@@ -60,7 +60,7 @@
 
 ```bash
 # 克隆项目
-git clone <repo-url>
+git clone [<repo-url>](https://github.com/SuperclusterLaniakea/FileTextSeeker)
 cd FileTextSeeker
 
 # 构建
@@ -136,15 +136,4 @@ FileTextSeeker/
 
 ---
 
-## 📄 许可证
-
-本项目仅供学习参考使用。
-
----
-
-## 🙏 致谢
-
-- [file-seeker](https://github.com) — 文件搜索参考项目
-- [doc-searcher](https://github.com) — 文档检索参考项目
-- [file-lister-gui](https://github.com) — 文件清单生成器参考项目
-- [CodeMerger](https://github.com) — 代码合并工具参考项目
+## 📄 涉及到文件操作，不负责任何法律风险
