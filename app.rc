@@ -1,0 +1,26 @@
+1 ICON "icon.ico"
+1 RT_MANIFEST "app.manifest"
+
+1 VERSIONINFO
+FILEVERSION 1,1,0,0
+PRODUCTVERSION 1,1,0,0
+FILEOS 0x40004
+FILETYPE 0x1
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "080404b0"
+    BEGIN
+      VALUE "FileDescription", "ToolsNest - all-in-one file toolbox"
+      VALUE "FileVersion", "1.1.0.0"
+      VALUE "InternalName", "ToolsNest"
+      VALUE "OriginalFilename", "ToolsNest.exe"
+      VALUE "ProductName", "ToolsNest"
+      VALUE "ProductVersion", "1.1.0"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x804, 1200
+  END
+END

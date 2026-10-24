@@ -1,72 +1,100 @@
-﻿#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
-mod file_seeker;
-mod doc_searcher;
-mod file_lister_gui;
-mod code_merger;
-mod merged_app;
+mod app;
+mod cleaner;
+mod config;
+mod docs;
+mod duplicates;
+mod lister;
+mod merge;
+mod monitor;
+mod rename;
+mod search;
+mod sync;
+mod tabs;
+mod theme;
+mod tray;
+mod util;
+mod widgets;
 
-use merged_app::MergedApp;
+use std::path::PathBuf;
+use std::sync::Arc;
 
-/// 从 .ico 文件加载图标数据
-fn load_icon_from_ico(path: &str) -> Result<egui::IconData, Box<dyn std::error::Error>> {
-    let ico_data = std::fs::read(path)?;
-    let icon_dir = ico::IconDir::read(std::io::Cursor::new(&ico_data))?;
-    let entry = icon_dir.entries().iter()
-        .min_by_key(|e| (e.width() as i32 - 32).abs() + (e.height() as i32 - 32).abs())
-        .ok_or("No icon entries")?;
-    let icon_img = entry.decode()?;
-    let rgba = icon_img.rgba_data().to_vec();
-    Ok(egui::IconData {
-        rgba,
-        width: icon_img.width(),
-        height: icon_img.height(),
-    })
+fn load_window_icon() -> Option<Arc<eframe::egui::IconData>> {
+    let bytes = include_bytes!("../icon.ico");
+    let dir = ico::IconDir::read(std::io::Cursor::new(bytes.as_slice())).ok()?;
+    let entry = dir
+        .entries()
+        .iter()
+        .max_by_key(|e| e.width() as u64 * e.height() as u64)?;
+    let image = entry.decode().ok()?;
+    Some(Arc::new(eframe::egui::IconData {
+        rgba: image.rgba_data().to_vec(),
+        width: image.width(),
+        height: image.height(),
+    }))
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut viewport = egui::ViewportBuilder::default()
-        .with_inner_size([1200.0, 800.0])
-        .with_title("超级检索工具");
-
-    // 加载程序图标
-    let mut icon_loaded = false;
-    let icon_paths = ["icon.ico", "../icon.ico", "../../icon.ico"];
-    for p in &icon_paths {
-        if let Ok(icon_data) = load_icon_from_ico(p) {
-            viewport = viewport.with_icon(icon_data);
-            icon_loaded = true;
-            break;
-        }
-    }
-    // 尝试相对于 exe 所在目录
-    if !icon_loaded {
-        if let Ok(exe_path) = std::env::current_exe() {
-            if let Some(exe_dir) = exe_path.parent() {
-                for p in &["icon.ico", "../icon.ico", "../../icon.ico"] {
-                    let full = exe_dir.join(p);
-                    if let Ok(icon_data) = load_icon_from_ico(&full.to_string_lossy()) {
-                        viewport = viewport.with_icon(icon_data);
-                        break;
-                    }
-                }
+fn main() -> eframe::Result {
+    let args: Vec<String> = std::env::args().collect();
+    let mut config_dir: Option<PathBuf> = None;
+    let mut start_minimized = false;
+    let mut screenshot: Option<PathBuf> = None;
+    let mut initial_tab: Option<app::Tab> = None;
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--config-dir" if i + 1 < args.len() => {
+                config_dir = Some(PathBuf::from(&args[i + 1]));
+                i += 1;
             }
+            "--screenshot" if i + 1 < args.len() => {
+                screenshot = Some(PathBuf::from(&args[i + 1]));
+                i += 1;
+            }
+            "--tab" if i + 1 < args.len() => {
+                initial_tab = Some(app::Tab::from_id(&args[i + 1]));
+                i += 1;
+            }
+            "--minimized" => start_minimized = true,
+            _ => {}
         }
+        i += 1;
+    }
+
+    if screenshot.is_none() && !tray::acquire_single_instance() {
+        return Ok(());
+    }
+
+    let mut viewport = eframe::egui::ViewportBuilder::default()
+        .with_title("ToolsNest · 全能文件工具箱")
+        .with_inner_size([1280.0, 820.0])
+        .with_min_inner_size([1000.0, 640.0])
+        .with_app_id("ToolsNest");
+    if let Some(icon) = load_window_icon() {
+        viewport = viewport.with_icon(icon);
     }
 
     let options = eframe::NativeOptions {
         viewport,
+        renderer: eframe::Renderer::Glow,
+        glow_options: eframe::egui_glow::GlowConfiguration {
+            vsync: true,
+            ..Default::default()
+        },
+        centered: true,
         ..Default::default()
     };
 
     eframe::run_native(
-        "SuperSearcher",
+        "ToolsNest · 全能文件工具箱",
         options,
-        Box::new(|cc| {
-            let start_minimized = std::env::args().any(|a| a == "--minimized");
-            Box::new(MergedApp::new(cc, start_minimized))
+        Box::new(move |cc| {
+            let app = app::App::new(cc, config_dir, start_minimized, screenshot, initial_tab);
+            if start_minimized && app.has_tray() {
+                cc.egui_ctx.send_viewport_cmd(eframe::egui::ViewportCommand::Visible(false));
+            }
+            Ok(Box::new(app))
         }),
-    )?;
-
-    Ok(())
+    )
 }
